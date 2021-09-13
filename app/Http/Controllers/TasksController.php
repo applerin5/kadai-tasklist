@@ -15,10 +15,29 @@ class TasksController extends Controller
      */
     public function index()
     {
-        $tasks = Task::all();
-        return view('tasks.index', [
-            'tasks' => $tasks,
-        ]);
+        // $tasks = Task::all();
+        // return view('tasks.index', [
+        //     'tasks' => $tasks,
+        // ]);
+        $data = [];
+        if (\Auth::check()) { // 認証済みの場合
+            // 認証済みユーザを取得
+            $user = \Auth::user();
+            // ユーザの投稿の一覧を作成日時の降順で取得
+            // （後のChapterで他ユーザの投稿も取得するように変更しますが、現時点ではこのユーザの投稿のみ取得します）
+            $tasks = $user->tasks()->orderBy('created_at', 'desc')->paginate(10);
+
+            $data = [
+                'user' => $user,
+                'tasks' => $tasks,
+            ];
+            return view('tasks.index', [
+                'tasks' => $tasks,
+            ]);
+        }
+
+        // Welcomeビューでそれらを表示
+        return view('welcome', $data);
     }
 
     /**
@@ -50,13 +69,22 @@ class TasksController extends Controller
         ]);
         
         // タスクを作成
-        $task = new Task;
-        $task->status = $request->status;    // 追加
-        $task->content = $request->content;
-        $task->save();
+        //$task = new Task;
+        //$task->status = $request->status;    // 追加
+        //$task->content = $request->content;
+        //$task->save();
+        
+        // 認証済みユーザ（閲覧者）のタスクとして作成（リクエストされた値をもとに作成）
+        $request->user()->tasks()->create([
+            'content' => $request->content,
+        ]);
 
         // トップページへリダイレクトさせる
-        return redirect('/');
+        //return redirect('/');
+        
+         // 前のURLへリダイレクトさせる
+        return back();
+        
     }
 
     /**
@@ -130,9 +158,18 @@ class TasksController extends Controller
         // idの値でタスクを検索して取得
         $task = Task::findOrFail($id);
         // タスクを削除
-        $task->delete();
+        //$task->delete();
+        
+        // 認証済みユーザ（閲覧者）がそのタスクの所有者である場合は、タスクを削除
+        if (\Auth::id() === $task->user_id) {
+            $task->delete();
+        }
 
         // トップページへリダイレクトさせる
-        return redirect('/');
+        //return redirect('/');
+        
+        // 前のURLへリダイレクトさせる
+        return back();
+        
     }
 }
